@@ -1,9 +1,7 @@
 --[[
-    ╔══════════════════════════════════════════════╗
-    ║             KraxzUi Library v1.0             ║
-    ║              Made by Kraxz Hub               ║
-    ║     Professional Dark + Red Theme UI Lib     ║
-    ╚══════════════════════════════════════════════╝
+    KraxzUi Library v1.1
+    Made by Kraxz Hub
+    + Toggle & Lock Button (seperti screenshot asli)
 ]]
 
 local KraxzUi = {}
@@ -20,6 +18,12 @@ local function GetParent()
     local success, result = pcall(function()
         if gethui then return gethui() end
         if get_hidden_gui then return get_hidden_gui() end
+        if syn and syn.protect_gui then
+            local g = Instance.new("ScreenGui")
+            syn.protect_gui(g)
+            g.Parent = CoreGui
+            return g
+        end
         return CoreGui
     end)
     return success and result or CoreGui
@@ -152,7 +156,7 @@ end
 function KraxzUi:CreateWindow(cfg)
     cfg = cfg or {}
     local Title = cfg.Title or "Kraxz Hub"
-    local Version = cfg.Version or "v1.0"
+    local Version = cfg.Version or "v1.1"
     local ToggleKey = cfg.ToggleKey or Enum.KeyCode.RightControl
     local ConfigFolder = cfg.ConfigFolder or "KraxzHub"
     local ConfigName = cfg.ConfigName or "config"
@@ -187,6 +191,49 @@ function KraxzUi:CreateWindow(cfg)
     Corner(Main, 10)
     Stroke(Main, Theme.Stroke, 1)
     Tween(Main, {BackgroundTransparency = 0}, 0.35)
+
+    -- ==================== TOGGLE & LOCK BUTTON (Kiri Atas) ====================
+    local ControlPanel = Create("Frame", {
+        Name = "ControlPanel",
+        Parent = ScreenGui,
+        BackgroundColor3 = Theme.Secondary,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 12, 0, 12),
+        Size = UDim2.new(0, 110, 0, 32),
+        ZIndex = 100
+    })
+    Corner(ControlPanel, 6)
+    Stroke(ControlPanel, Theme.Stroke, 1)
+
+    local ToggleBtn = Create("TextButton", {
+        Parent = ControlPanel,
+        BackgroundColor3 = Theme.Tertiary,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 4, 0, 4),
+        Size = UDim2.new(0, 50, 0, 24),
+        Font = Enum.Font.GothamMedium,
+        Text = "Toggle",
+        TextColor3 = Theme.Text,
+        TextSize = 11,
+        AutoButtonColor = false,
+        ZIndex = 101
+    })
+    Corner(ToggleBtn, 4)
+
+    local LockBtn = Create("TextButton", {
+        Parent = ControlPanel,
+        BackgroundColor3 = Theme.Tertiary,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 56, 0, 4),
+        Size = UDim2.new(0, 50, 0, 24),
+        Font = Enum.Font.GothamMedium,
+        Text = "Lock",
+        TextColor3 = Theme.Text,
+        TextSize = 11,
+        AutoButtonColor = false,
+        ZIndex = 101
+    })
+    Corner(LockBtn, 4)
 
     -- Title Bar
     local TitleBar = Create("Frame", {
@@ -225,7 +272,7 @@ function KraxzUi:CreateWindow(cfg)
     })
     Corner(SearchBox, 6)
 
-    -- Window Controls
+    -- Window Controls (Minimize Maximize Close)
     local ControlFrame = Create("Frame", {
         Parent = TitleBar,
         BackgroundTransparency = 1,
@@ -255,7 +302,37 @@ function KraxzUi:CreateWindow(cfg)
     local CloseBtn = MakeBtn("×", 72)
 
     local IsMinimized, IsMaximized = false, false
+    local IsLocked = false
     local SavedPos, SavedSize = Main.Position, DefaultSize
+
+    -- Toggle Button Function
+    ToggleBtn.MouseButton1Click:Connect(function()
+        if Main.Visible then
+            Main.Visible = false
+            ToggleBtn.Text = "Show"
+            ToggleBtn.BackgroundColor3 = Theme.Accent
+        else
+            Main.Visible = true
+            IsMinimized = false
+            Main.Size = IsMaximized and MaximizedSize or DefaultSize
+            ToggleBtn.Text = "Toggle"
+            ToggleBtn.BackgroundColor3 = Theme.Tertiary
+        end
+    end)
+
+    -- Lock Button Function
+    LockBtn.MouseButton1Click:Connect(function()
+        IsLocked = not IsLocked
+        if IsLocked then
+            LockBtn.Text = "Locked"
+            LockBtn.BackgroundColor3 = Theme.Accent
+            Notify("Kraxz Hub", "Window Locked")
+        else
+            LockBtn.Text = "Lock"
+            LockBtn.BackgroundColor3 = Theme.Tertiary
+            Notify("Kraxz Hub", "Window Unlocked")
+        end
+    end)
 
     MinBtn.MouseButton1Click:Connect(function()
         IsMinimized = not IsMinimized
@@ -286,9 +363,9 @@ function KraxzUi:CreateWindow(cfg)
     end)
 
     CloseBtn.MouseButton1Click:Connect(function()
-        Tween(Main, {BackgroundTransparency = 1}, 0.2)
-        task.wait(0.22)
-        ScreenGui:Destroy()
+        Main.Visible = false
+        ToggleBtn.Text = "Show"
+        ToggleBtn.BackgroundColor3 = Theme.Accent
     end)
 
     -- Sidebar
@@ -334,9 +411,10 @@ function KraxzUi:CreateWindow(cfg)
 
     local Pages = Create("Folder", {Name = "Pages", Parent = Content})
 
-    -- Dragging
+    -- Dragging (hanya jika tidak Locked)
     local dragging, dragStart, startPos
     TitleBar.InputBegan:Connect(function(input)
+        if IsLocked then return end
         if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not IsMaximized then
             dragging = true
             dragStart = input.Position
@@ -349,7 +427,7 @@ function KraxzUi:CreateWindow(cfg)
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and not IsLocked and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
             Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
@@ -374,10 +452,17 @@ function KraxzUi:CreateWindow(cfg)
     function Window:SetVisible(state)
         Window.Visible = state
         Main.Visible = state
+        if state then
+            ToggleBtn.Text = "Toggle"
+            ToggleBtn.BackgroundColor3 = Theme.Tertiary
+        else
+            ToggleBtn.Text = "Show"
+            ToggleBtn.BackgroundColor3 = Theme.Accent
+        end
     end
 
     function Window:Toggle()
-        Window:SetVisible(not Window.Visible)
+        Window:SetVisible(not Main.Visible)
     end
 
     local CurrentToggleKey = ToggleKey
@@ -396,7 +481,7 @@ function KraxzUi:CreateWindow(cfg)
             if writefile then
                 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
                 writefile(ConfigFolder .. "/" .. ConfigName .. ".json", HttpService:JSONEncode(Flags))
-                Notify("Config", "Saved successfully!")
+                Notify("Config", "Saved!")
             end
         end)
     end
@@ -408,7 +493,7 @@ function KraxzUi:CreateWindow(cfg)
                 if isfile(path) then
                     local data = HttpService:JSONDecode(readfile(path))
                     for k, v in pairs(data) do Flags[k] = v end
-                    Notify("Config", "Loaded successfully!")
+                    Notify("Config", "Loaded!")
                 end
             end
         end)
